@@ -40,8 +40,8 @@ $(CONCAT_DIRS): $(CONCAT_BASE)
 
 concat_raw: $(CONCAT_DIRS)
 	for b in $(BASENAMES); do \
-		cat raw_data/Sample_$$b/$$b*R1*.fastq.gz > concatenated_raw/$$b/$$b\_R1.fastq.gz; \
-		cat raw_data/Sample_$$b/$$b*R2*.fastq.gz > concatenated_raw/$$b/$$b\_R2.fastq.gz; \
+		zcat raw_data/Sample_$$b/$$b*R1*.fastq.gz > concatenated_raw/$$b/$$b\_R1.fastq; \
+		zcat raw_data/Sample_$$b/$$b*R2*.fastq.gz > concatenated_raw/$$b/$$b\_R2.fastq; \
 	done
 
 concat_clean: $(CONCAT_BASE)
