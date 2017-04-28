@@ -11,3 +11,7 @@ To see how our raw data looks, ran fastqc (version 0.11.5) on the raw reads.
 In general, quality scores look pretty good, R2 ("reverse") reads tend to be slightly lower quality. Sample C12, rep2 was rather lower quality, but probably not fatal after quality trimming. To a lesser extend Sample T12, rep1 was also slightly lower quality. In both cases, the low quality was observed in both lanes of sequencing, suggesting the issue is with the library.
 
 Looking at overrepresented sequences, most R1 ("forward") reads had hits to "TruSeq Adapter, Index i", where i is in {2, 3, 5, 5, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22, 25, 27}. Most R2 reads had hits to "Illumina Single End PCR primer 1". Hits ranged from about 97% match over 36 nt to 100% match over 50nt.
+
+## Concatenating reads
+
+Before trimming and further QC, concatenated reads from the sample sample and read direction together. This just reduces the number of input files we have to deal with. At the same time, decompress the files because not all programs handle gzipped fastq. After decompressing and concatenating, used the perl script pe-sync-2-files.pl, written by John Garbe to check the forward and reverse reads are still synced up.
