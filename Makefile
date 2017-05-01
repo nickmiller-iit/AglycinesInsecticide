@@ -107,3 +107,16 @@ trim: $(TRIM_FILES)
 
 trim_clean: $(TRIM_BASE)
 	rm -r $(TRIM_BASE)
+
+
+#
+# Run QC on trimmed data
+#
+
+QC_TRIMMED_OUTDIR=$(addsuffix /trimmed, $(QC_OUTDIR))
+
+qc_trimmed: $(TRIM_FILES)
+	if [ ! -d $(QC_OUTDIR) ]; then mkdir $(QC_OUTDIR); fi
+	if [ ! -d $(QC_TRIMMED_OUTDIR) ]; then mkdir $(QC_TRIMMED_OUTDIR); fi
+	fastqc -o $(QC_TRIMMED_OUTDIR) -t $(words $(TRIM_FILES))  $(TRIM_FILES)
+
