@@ -15,3 +15,20 @@ Looking at overrepresented sequences, most R1 ("forward") reads had hits to "Tru
 ## Concatenating reads
 
 Before trimming and further QC, concatenated reads from the sample sample and read direction together. This just reduces the number of input files we have to deal with. At the same time, decompress the files because not all programs handle gzipped fastq. After decompressing and concatenating, used the perl script pe-sync-2-files.pl, written by John Garbe to check the forward and reverse reads are still synced up.
+
+## Trimming reads and QC
+
+Trimming was done using Trimmomtic v0.36. Parameters are in the Makefile. Post trimming QC showed that
+
+* Retained paired reads were between 6.6 and 13 million paired reads per sample. The only exception was sample C12, rep2 with 4.2 million paired reads. This is probably to be expected, given this library gave lower quality overall.
+* Unpaired reads were generally 5-10% the number of paired reads for read 1 and 0.5-1 % for read 2.
+* Unpaired reads generally hade more variation in quality scores than paired reads. This probably makes sense given that unpaired reads had a pair that did not pass trimming.
+* No adaptor or primer sequences were detected in any set of paired reads.
+* Low levels of adaptor/primer sequences were detected in a few sets of unpaired reads
+  - C12, rep 2: read 1 (1.7%)
+  - C12, rep 3: read1 (0.8%)
+  - C12, rep 4: read 1 (0.12%)
+  - E12, rep 3: read 1 (0.15%)
+  - T12, rep 1: read 1 (0.3%), read 2(0.57%)
+
+Overall, this looks pretty respectable. We are probably OK with the remaining low levels of adaptor contamination. We are not doing de-novo assembly so, at worst, those reads will fail to map.
