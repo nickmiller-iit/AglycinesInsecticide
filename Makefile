@@ -118,3 +118,26 @@ qc_trimmed: $(TRIM_FILES)
 	if [ ! -d $(QC_TRIMMED_OUTDIR) ]; then mkdir $(QC_TRIMMED_OUTDIR); fi
 	fastqc -o $(QC_TRIMMED_OUTDIR) -t $(words $(TRIM_FILES))  $(TRIM_FILES)
 
+#
+# map reads with GSNAP
+#
+
+#Set up the indexed genome database for GSNAP
+GENOME_DIR=genome
+
+GENOME_DB=SBAGenome
+
+GENOME_DB_DIR=$(GENOME_DIR)/$(GENOME_DB)
+
+GENOME_FASTA=$(GENOME_DIR)/SBAphid_ref_genome_v2.fna
+
+GENOME_DB_FILES=$(addprefix $(GENOME_DB_DIR)/, SBAGenome.chromosome SBAGenome.chromosome.iit SBAGenome.chrsubset SBAGenome.contig SBAGenome.contig.iit SBAGenome.genomebits128 SBAGenome.genomecomp SBAGenome.ref153offsets64meta SBAGenome.ref153offsets64strm SBAGenome.ref153positions SBAGenome.sachildexc SBAGenome.sachildguide1024 SBAGenome.saindex64meta SBAGenome.saindex64strm SBAGenome.salcpchilddc SBAGenome.salcpexc SBAGenome.salcpguide1024 SBAGenome.sarray SBAGenome.version SBAGenome.maps)
+
+
+$(GENOME_DB_FILES): $(GENOME_FASTA)
+	gmap_build -D $(GENOME_DIR) -d $(GENOME_DB) $(GENOME_FASTA)
+
+genome_db: $(GENOME_DB_FILES)
+
+genome_db_clean: $(GENOME_DB_DIR)
+	rm -r $(GENOME_DB_DIR)
