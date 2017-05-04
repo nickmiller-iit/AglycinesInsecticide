@@ -32,3 +32,10 @@ Trimming was done using Trimmomtic v0.36. Parameters are in the Makefile. Post t
   - T12, rep 1: read 1 (0.3%), read 2(0.57%)
 
 Overall, this looks pretty respectable. We are probably OK with the remaining low levels of adaptor contamination. We are not doing de-novo assembly so, at worst, those reads will fail to map.
+
+## Mapping reads
+
+
+Reads were mapped to the genome using GSNAP v2017-04-24 with default parameters. Resulting BAM files were sorted and idexed with samtools v1.4.
+
+GSNAP will only map paired reads or single reads, not a mixture of both. We could work around this by doing paired and single reads separatedly and then merging the output. Chose not to do this right away and just align paired reads as in most cases we will only gain a few % extra reads and the quality of the single reads is lower. 
