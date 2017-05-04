@@ -141,3 +141,25 @@ genome_db: $(GENOME_DB_FILES)
 
 genome_db_clean: $(GENOME_DB_DIR)
 	rm -r $(GENOME_DB_DIR)
+
+#Align paired reads and write SAM file
+
+SAMPLES=$(BASENAMES)
+
+ALIGN_DIR=bam
+
+GSNAP_CMD=gsnap -t 26 -A sam
+
+BAM_FILES=$(addsuffix .bam, $(addprefix $(ALIGN_DIR)/, $(SAMPLES)))
+#BAM_FILES:=$(addsuffix .bam, $(SAM_FILES))
+
+
+
+$(BAM_FILES): $(1POUT) $(2POUT)
+	if [ ! -d $(ALIGN_DIR) ]; then mkdir $(ALIGN_DIR); fi
+	$(foreach sample, $(SAMPLES), $(GSNAP_CMD) -D $(GENOME_DIR) -d $(GENOME_DB) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq | samtools view -bh > $(ALIGN_DIR)/$(sample).bam)
+
+align: $(BAM_FILES)
+
+align_clean: $(ALIGN_DIR)
+	rm -r $(ALIGN_DIR)
