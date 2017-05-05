@@ -148,7 +148,7 @@ SAMPLES=$(BASENAMES)
 
 ALIGN_DIR=bam
 
-GSNAP_CMD=gsnap -t 26 -A sam
+GSNAP_CMD=gsnap -t 26 -N 1 -A sam
 
 BAM_FILES=$(addsuffix .bam, $(addprefix $(ALIGN_DIR)/, $(SAMPLES)))
 
