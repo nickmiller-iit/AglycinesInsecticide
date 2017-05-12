@@ -214,3 +214,20 @@ $(GFF_CMP_FILES): $(STRINGTIE_MERGED) $(STRINGTIE_REF)
 analyze_merged: $(GFF_CMP_FILES)
 
 
+#
+#Use Stringtie to count reads mapping to exons/transcripts/genes
+#
+#
+
+BALLGOWN_DIR=ballgown
+
+BALLGOWN_SUB_DIRS=$(addprefix $(BALLGOWN_DIR)/, $(SAMPLES))
+
+$(BALLGOWN_SUB_DIRS): $(STRINGTIE_MERGED) $(BAM_FILES_SORTED)
+	if [ ! -d $(BALLGOWN_DIR) ]; then mkdir $(BALLGOWN_DIR); fi
+	$(foreach sample, $(SAMPLES), stringtie -p 26 -e -b $(addprefix $(BALLGOWN_DIR)/, $(sample)) -G $(STRINGTIE_MERGED) $(addsuffix .sorted.bam, $(addprefix $(ALIGN_DIR)/, $(sample))); )
+
+read_counts: $(BALLGOWN_SUB_DIRS)
+
+read_counts_clean: $(BALLGOWN_DIR)
+	rm -r $(BALLGOWN_DIR)

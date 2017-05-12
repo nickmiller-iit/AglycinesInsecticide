@@ -43,3 +43,7 @@ GSNAP will only map paired reads or single reads, not a mixture of both. We coul
 ## Updating annotations
 
 Initial insprecion or read alignments suggested thare are a number of points in the genome where appreciable numbers of reads are aligned, but there is not a reference annotation. Used StringTie v 1.3.3b to assemble stranscripts from each sample based on aligned reads. Because StringTie was supplied with the reference annotation, it kept track of the assembled exons & transcripts that overlap with existing reference annotations. Stringtie was then used to merge assemblies from individual samples into a single GFF. A quick analysis with gffcompare v0.9.8 shows that the merged assmebly contains 33032 exons and 11509 loci that are not in the original reference annotation.
+
+## Read counting
+
+Used StringTie to generate reads counts. Set the output to be compatible with the Ballgown R package. This is by the same group as StringTie, and has its own approach ro defiretntial expression analysis. However (according to the docs) it can easily format data for DESeq2 and EdgeR, so it seems as go a way to go as any.
