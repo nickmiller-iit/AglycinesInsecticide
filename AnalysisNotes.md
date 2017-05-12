@@ -39,3 +39,7 @@ Overall, this looks pretty respectable. We are probably OK with the remaining lo
 Reads were mapped to the genome using GSNAP v2017-04-24 with default parameters, except that -N 1 was set to enable splicing. Resulting BAM files were sorted and idexed with samtools v1.4.
 
 GSNAP will only map paired reads or single reads, not a mixture of both. We could work around this by doing paired and single reads separatedly and then merging the output. Chose not to do this right away and just align paired reads as in most cases we will only gain a few % extra reads and the quality of the single reads is lower. 
+
+## Updating annotations
+
+Initial insprecion or read alignments suggested thare are a number of points in the genome where appreciable numbers of reads are aligned, but there is not a reference annotation. Used StringTie v 1.3.3b to assemble stranscripts from each sample based on aligned reads. Because StringTie was supplied with the reference annotation, it kept track of the assembled exons & transcripts that overlap with existing reference annotations. Stringtie was then used to merge assemblies from individual samples into a single GFF. A quick analysis with gffcompare v0.9.8 shows that the merged assmebly contains 33032 exons and 11509 loci that are not in the original reference annotation.

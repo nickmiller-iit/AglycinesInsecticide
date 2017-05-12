@@ -175,3 +175,42 @@ $(BAM_INDEX_FILES): $(BAM_FILES_SORTED)
 	$(foreach bamfile, $(BAM_FILES_SORTED), samtools index -@ 28 $(bamfile);)
 
 align_index: $(BAM_INDEX_FILES)
+
+#
+# Use stringtie to assemble transcripts that are not in the genome annotation
+#
+STRINGTIE_DIR=stringtie
+
+STRINGTIE_REF=genome/SBAphid_ref_genome_v2.gff3
+
+STRINGTIE_CMD=stringtie -p 26 -G $(STRINGTIE_REF)
+
+STRINGTIE_FILES=$(addsuffix .gtf, $(addprefix $(STRINGTIE_DIR)/, $(SAMPLES)))
+
+$(STRINGTIE_FILES): $(BAM_FILES_SORTED)
+	if [ ! -d $(STRINGTIE_DIR) ]; then mkdir $(STRINGTIE_DIR); fi
+	$(foreach bamfile, $(BAM_FILES_SORTED), $(STRINGTIE_CMD) -o $(subst $(ALIGN_DIR)/, $(STRINGTIE_DIR)/, $(subst .sorted.bam,.gtf, $(bamfile))) $(bamfile);)
+
+
+assemble_transcripts: $(STRINGTIE_FILES)
+
+STRINGTIE_MERGED=$(STRINGTIE_DIR)/stringtie_merged.gtf
+
+$(STRINGTIE_MERGED): $(STRINGTIE_FILES)
+	stringtie --merge -G $(STRINGTIE_REF) -o $(STRINGTIE_MERGED) $(STRINGTIE_FILES)
+
+merge_transcripts: $(STRINGTIE_MERGED)
+
+#
+#Compare merged assembly to original annotation 
+#
+
+GFF_CMP_FILES=$(addprefix $(STRINGTIE_DIR)/, gffcmp.annotated.gtf  gffcmp.loci  gffcmp.stats  gffcmp.tracking)
+
+$(GFF_CMP_FILES): $(STRINGTIE_MERGED) $(STRINGTIE_REF)
+	gffcompare -r $(STRINGTIE_REF) $(STRINGTIE_MERGED)
+	mv gffcmp.* $(STRINGTIE_DIR)
+
+analyze_merged: $(GFF_CMP_FILES)
+
+
