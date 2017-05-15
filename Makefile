@@ -213,6 +213,32 @@ $(GFF_CMP_FILES): $(STRINGTIE_MERGED) $(STRINGTIE_REF)
 
 analyze_merged: $(GFF_CMP_FILES)
 
+#
+#Convert orginal annotation to GTF
+#
+
+ANNOT_DIR=annotations
+
+REF_GTF= $(addprefix $(ANNOT_DIR)/, SBAphid_ref_genome_v2.gtf)
+
+$(REF_GTF): $(STRINGTIE_REF)
+	if [ ! -d $(ANNOT_DIR) ]; then mkdir $(ANNOT_DIR); fi
+	gffread -T -o $(REF_GTF) $(STRINGTIE_REF)
+
+STRINGTIE_UNIQUE= $(addprefix $(ANNOT_DIR)/, stringtie_unique.gtf)
+
+$(STRINGTIE_UNIQUE): $(STRINGTIE_MERGED) $(REF_GTF)
+	bedtools intersect -v -b $(REF_GTF) -a $(STRINGTIE_MERGED) > $(STRINGTIE_UNIQUE)
+
+UNIQUE_ANNOTATIONS= $(addprefix $(ANNOT_DIR)/, unique.gtf)
+
+$(UNIQUE_ANNOTATIONS): $(REF_GTF) $(STRINGTIE_UNIQUE)
+	cat $(REF_GTF) $(STRINGTIE_UNIQUE) > $(UNIQUE_ANNOTATIONS)
+
+unique_annots: $(UNIQUE_ANNOTATIONS)
+
+annots_clean: $(ANNOT_DIR)
+	rm -r $(ANNOT_DIR)
 
 #
 #Use Stringtie to count reads mapping to exons/transcripts/genes
