@@ -240,9 +240,27 @@ unique_annots: $(UNIQUE_ANNOTATIONS)
 annots_clean: $(ANNOT_DIR)
 	rm -r $(ANNOT_DIR)
 
+
+
+#
+#Generate fragment counts per gene for differential gene expression anlysis with DESeq2
+#
+
+FRAG_COUNTS_DIR= fragmentcounts
+
+FRAG_COUNTS_TABLE= $(addprefix $(FRAG_COUNTS_DIR)/, count_table)
+
+$(FRAG_COUNTS_TABLE): $(UNIQUE_ANNOTATIONS) $(BAM_FILES_SORTED)
+	if [ ! -d $(FRAG_COUNTS_DIR) ]; then mkdir $(FRAG_COUNTS_DIR); fi
+	featureCounts -p -T 26 -a $(UNIQUE_ANNOTATIONS) -t exon -g gene_id -o $(FRAG_COUNTS_TABLE) $(BAM_FILES_SORTED)
+
+frag_counts: $(FRAG_COUNTS_TABLE)
+
+frag_counts_clean: $(FRAG_COUNTS_DIR)
+	rm -r $(FRAG_COUNTS_DIR)
 #
 #Use Stringtie to count reads mapping to exons/transcripts/genes
-#
+#For use with ballgown. Doesn't give us counts for DESeq, but has some nice visualization tools etc.
 #
 
 BALLGOWN_DIR=ballgown
@@ -253,7 +271,7 @@ $(BALLGOWN_SUB_DIRS): $(STRINGTIE_MERGED) $(BAM_FILES_SORTED)
 	if [ ! -d $(BALLGOWN_DIR) ]; then mkdir $(BALLGOWN_DIR); fi
 	$(foreach sample, $(SAMPLES), stringtie -p 26 -e -b $(addprefix $(BALLGOWN_DIR)/, $(sample)) -G $(STRINGTIE_MERGED) $(addsuffix .sorted.bam, $(addprefix $(ALIGN_DIR)/, $(sample))); )
 
-read_counts: $(BALLGOWN_SUB_DIRS)
+ballgown: $(BALLGOWN_SUB_DIRS)
 
-read_counts_clean: $(BALLGOWN_DIR)
+ballgown_clean: $(BALLGOWN_DIR)
 	rm -r $(BALLGOWN_DIR)
