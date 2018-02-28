@@ -51,3 +51,7 @@ After attempting to count reads, it became apparent that there were a number of 
 Used StringTie to generate read counts. Set the output to be compatible with the Ballgown R package. This is by the same group as StringTie, and has its own approach to differential expression analysis. However (according to the docs) it can easily format data for DESeq2 and EdgeR, so it seems as good a way to go as any.
 
 This turns out not to be acurate. Ballgown will only give expression levels as FPKM, *except* for exon-level data. Since we plan to use DESeq2, we need read counts at gene level. Fortunately featureCounts v1.5.2 can give us exactly what we want. It counts fragments at the exon level and then groups by gene id, giving us the fragment counts per gene per sample.
+
+## Updating to new assembly
+
+As of Feb 2018, there is an updated and significantly improved assembly, labeled version 6.0. This is the one we should use for genome-related publications. Luckily, because everything was set up using a Makefile, it should be easy to simply rerun everything described above, starting with read mapping.

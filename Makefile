@@ -129,7 +129,7 @@ GENOME_DB=SBAGenome
 
 GENOME_DB_DIR=$(GENOME_DIR)/$(GENOME_DB)
 
-GENOME_FASTA=$(GENOME_DIR)/SBAphid_ref_genome_v2.fna
+GENOME_FASTA=$(GENOME_DIR)/SBAphid_ref_genome_v6.fna
 
 GENOME_DB_FILES=$(addprefix $(GENOME_DB_DIR)/, SBAGenome.chromosome SBAGenome.chromosome.iit SBAGenome.chrsubset SBAGenome.contig SBAGenome.contig.iit SBAGenome.genomebits128 SBAGenome.genomecomp SBAGenome.ref153offsets64meta SBAGenome.ref153offsets64strm SBAGenome.ref153positions SBAGenome.sachildexc SBAGenome.sachildguide1024 SBAGenome.saindex64meta SBAGenome.saindex64strm SBAGenome.salcpchilddc SBAGenome.salcpexc SBAGenome.salcpguide1024 SBAGenome.sarray SBAGenome.version SBAGenome.maps)
 
