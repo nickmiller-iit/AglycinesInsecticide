@@ -181,7 +181,7 @@ align_index: $(BAM_INDEX_FILES)
 #
 STRINGTIE_DIR=stringtie
 
-STRINGTIE_REF=genome/SBAphid_ref_genome_v2.gff3
+STRINGTIE_REF=genome/OGS6.0_20180125.gff3
 
 STRINGTIE_CMD=stringtie -p 26 -G $(STRINGTIE_REF)
 
@@ -219,7 +219,7 @@ analyze_merged: $(GFF_CMP_FILES)
 
 ANNOT_DIR=annotations
 
-REF_GTF= $(addprefix $(ANNOT_DIR)/, SBAphid_ref_genome_v2.gtf)
+REF_GTF= $(addprefix $(ANNOT_DIR)/, OGS6.0_20180125.gtf)
 
 $(REF_GTF): $(STRINGTIE_REF)
 	if [ ! -d $(ANNOT_DIR) ]; then mkdir $(ANNOT_DIR); fi
