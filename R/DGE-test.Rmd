@@ -1,0 +1,163 @@
+---
+title: "Differential Gene Expression Analysis - a first look"
+output: html_notebook
+---
+
+Goal is to perform differential gene expression analysis of control (no insecticide) *.vs.* esfenvalerae or thiamethoxam at 12 and 24 hours. We have a couple of options, DESeq2 or ballgown. We will start with DESeq2, because we more-or-less know our way around it.
+
+# Reading in data
+
+We have a table of fragment counts per gene produced by featureCounts 1.5.2. Let's check it out
+
+```{r rawdat}
+infile = "../fragmentcounts/count_table"
+rawdat <- read.table(infile, header = T)
+head(rawdat)
+```
+
+Tidying up the data. We have a bunch of columns we don't really need. The names of our sample count columns are also a mess.
+
+```{r fragCounts}
+library(stringr)
+fragCounts <- rawdat[,c(1, 6:30)]
+names(fragCounts) <- c(names(fragCounts[1:2]), str_split(names(fragCounts[,3:26]), pattern = "\\.", simplify = T)[,2])
+#set row names to gene IDs, as needed by DESeq2, drop lengths, we don't need them
+fragCounts <- data.frame(fragCounts[, -2], row.names = 1)
+head(fragCounts)
+```
+
+# DESeq2 Trial run
+
+Let's just give it a go to work out the kinks.
+
+We want a subset of the fragment counts with just the columns for control and esfenvalerate at 12 hours, and only those rows where the mean count >= 10
+
+```{r e12Counts}
+e12Counts <- fragCounts[,which(!(is.na(str_extract(names(fragCounts), "C12|E12"))))]
+e12Counts <- e12Counts[apply(e12Counts, 1, mean) >= 0,]
+head(e12Counts)
+```
+
+We also want a a table describing the conditions
+
+```{r e12Conds}
+e12Conds <- data.frame(treatment = as.factor(rep(c("control", "esfenvalerate"), each = 4)), row.names = names(e12Counts))
+e12Conds
+```
+
+
+Next set up a DESeq2 data object
+
+```{r e12Data}
+library(DESeq2)
+e12Data <- DESeqDataSetFromMatrix(countData = e12Counts,
+                                  colData = e12Conds,
+                                  design = ~treatment)
+e12Data
+```
+
+Run the analysis
+
+```{r e12Results}
+e12Data <- DESeq(e12Data)
+e12Results <- results(e12Data)
+summary(e12Results)
+e12Results.lfc <- lfcShrink(e12Data, "treatment_esfenvalerate_vs_control")
+summary(e12Results.lfc)
+plotMA(e12Results.lfc, ylim = range(e12Results.lfc$log2FoldChange, na.rm = T))
+
+
+```
+So, we end up with thousands of genes differentially regulated. That's not super helpful, but we can ficus on just the ones that have, say a >= 2-fold change in expression.
+
+```{r e12REsults.2fold}
+
+e12Results.2fold <- results(e12Data,
+                            lfcThreshold = 1)
+
+
+e12Results.2fold.tidy <- results(e12Data,
+                            lfcThreshold = 1,
+                            tidy = T) #want gene names in a col for joins
+
+summary(e12Results.2fold)
+
+```
+
+Gives us a more maageable 92 genes differentially expressed > 2-fold difference.
+
+Lets try and see what, if any annotations we have going on here
+
+A simple start
+
+Get the annotations done with blast2go
+
+```{r b2g.annot}
+b2g.annot <- read.table(file = "../genome/SBA_annot/blast2go.annot",
+                        col.names = c("id", "GO", "name"),
+                        sep = '\t',
+                        stringsAsFactors = F)
+b2g.annot$id <- str_remove(b2g.annot$id, "-PA")
+```
+
+```{r}
+sig.genes <- row.names(subset(e12Results.2fold, padj <= 0.1))
+sig.annots <- subset(b2g.annot, id %in% sig.genes)
+```
+Nothing here looks like detoxification related. Then again only `unique(sig.annots$id)` differentially expressed genes have any annotation.
+
+# Ballgown trial run
+
+Lets see what we get with ballgown and how it compares to DESeq2
+
+Load the data, setup
+
+```{r bgDat}
+bgDat <- ballgown(samples = list.files(bgdir, pattern = "C12*|E12*", full.names = T))
+pData(bgDat) <- data.frame(id = sampleNames(bgDat), treated = rep(c(0, 1), each = 4))
+
+```
+
+Run a differential gene expression test at the gen level.
+
+```{r bg.results}
+bg.results <- stattest(gown = bgDat, feature = "gene", covariate = "treated", meas = "FPKM")
+head(bg.results)
+bg.results.sig <- subset(bg.results, qval <= 0.1)
+#total number of DE genes
+length(bg.results.sig$id)
+```
+However, at this point, we discover something a bit fishy. The vast majority of the significantly differentially expressed genes are not from the aphid base gene set.
+
+```{r geneSetVsStringte}
+# Count for Aphidbase gene set
+sum(str_detect(bg.results.sig$id, "^AG6"))
+#count for stringtie
+sum(str_detect(bg.results.sig$id, "^MSTRG"))
+
+```
+
+
+We can use ballgown's visualization tools to look at some examples
+
+
+Example of an aphidbase gene model
+
+```{r visualize_aphidbase}
+plotMeans(gene = sample(as.character(bg.results.sig$id[str_detect(bg.results.sig$id, "^AG6")]), 1),
+          gown = bgDat,
+          groupvar = "treated")
+
+```
+
+```{r visualize_stringtie}
+plotMeans(gene = sample(as.character(bg.results.sig$id[str_detect(bg.results.sig$id, "^MSTRG")]), 1),
+          gown = bgDat,
+          groupvar = "treated")
+
+```
+
+
+Generally, but not always, the stringtie models have a mess of alternate transcripts, the aphid base models have a single transcript.
+
+Think we may need to revisit the process of supplementing the maker annotations from aphidBase with ones we produce using Stringtie.
