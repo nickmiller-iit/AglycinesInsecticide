@@ -44,7 +44,7 @@ GSNAP will only map paired reads or single reads, not a mixture of both. We coul
 
 Initial inspection of read alignments suggested thare are a number of points in the genome where appreciable numbers of reads are aligned, but there is not a reference annotation. Used StringTie v 1.3.3b to assemble transcripts from each sample based on aligned reads. Because StringTie was supplied with the reference annotation, it kept track of the assembled exons & transcripts that overlap with existing reference annotations. Stringtie was then used to merge assemblies from individual samples into a single GFF. A quick analysis with gffcompare v0.9.8 shows that the merged assembly contains 33032 exons and 11509 loci that are not in the original reference annotation.
 
-After attempting to count reads, it became apparent that there were a number of genes identified by stringtie that overlapped with genes from the reference annotation. This causes problems because the assignment of a read to a gene becomes ambiguoue when it maps to >1 gene annotation. The cautious approach is to only retain those genes identified by stingtie that do not overlapp with genes from the reference annotation. Used gffread v0.9.8d to convert the refrerence annotations from gff3 to gtf. Then used bedtools v2.26.0 to isolate fetures from the merged StringTie assembly that do not overlap at all with features in the reference annotation. Finally combined the two to produce a GTF file that contains orginal reference annotations plus noevel genes found by StringTie.
+After attempting to count reads, it became apparent that there were a number of genes identified by stringtie that overlapped with genes from the reference annotation. This causes problems because the assignment of a read to a gene becomes ambiguous when it maps to >1 gene annotation. The cautious approach is to only retain those genes identified by stingtie that do not overlapp with genes from the reference annotation. Used gffread v0.9.8d to convert the refrerence annotations from gff3 to gtf. Then used bedtools v2.26.0 to isolate features from the merged StringTie assembly that do not overlap at all with features in the reference annotation. Finally combined the two to produce a GTF file that contains orginal reference annotations plus novel genes found by StringTie.
 
 ## Read counting
 
@@ -55,3 +55,15 @@ This turns out not to be acurate. Ballgown will only give expression levels as F
 ## Updating to new assembly
 
 As of Feb 2018, there is an updated and significantly improved assembly, labeled version 6.0. This is the one we should use for genome-related publications. Luckily, because everything was set up using a Makefile, it should be easy to simply rerun everything described above, starting with read mapping.
+
+## Doubts about stringtie
+
+Early attemts to test for differential gene expression suggest something fishy with the combined GTF. We get ridiculous numbers of genes lighting up as significantly differentially expressed. Most of these appear to have come from the stringtie assebly. Ballgown aslo reveals that the stringtie genes often have many putative isoforms. The maker gene set genes do not, because we just get the maker gene model.
+
+## Trying kalliso
+
+Kallisto and other "pseudoalignment" transcript quantifiers are the next big thing in RNA-Seq analysis. In addition to being much faster, kallisto explicity works with transcripts (including isoforms). This is a potentially a good thing because it should get us around the longstanding problem of what to do with muliple isoforms in a reference.
+
+### With maker gene set
+
+Kallisto works with a fasta file of transcript sequences. We already have this for the maker gene set, so started with makefile targets to index that and quantify transcripts.

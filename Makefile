@@ -267,11 +267,58 @@ BALLGOWN_DIR=ballgown
 
 BALLGOWN_SUB_DIRS=$(addprefix $(BALLGOWN_DIR)/, $(SAMPLES))
 
-$(BALLGOWN_SUB_DIRS): $(STRINGTIE_MERGED) $(BAM_FILES_SORTED)
+$(BALLGOWN_SUB_DIRS): $(UNIQUE_ANNOTATIONS) $(BAM_FILES_SORTED)
 	if [ ! -d $(BALLGOWN_DIR) ]; then mkdir $(BALLGOWN_DIR); fi
-	$(foreach sample, $(SAMPLES), stringtie -p 26 -e -b $(addprefix $(BALLGOWN_DIR)/, $(sample)) -G $(STRINGTIE_MERGED) $(addsuffix .sorted.bam, $(addprefix $(ALIGN_DIR)/, $(sample))); )
+	$(foreach sample, $(SAMPLES), stringtie -p 26 -e -b $(addprefix $(BALLGOWN_DIR)/, $(sample)) -G $(UNIQUE_ANNOTATIONS) $(addsuffix .sorted.bam, $(addprefix $(ALIGN_DIR)/, $(sample))); )
 
 ballgown: $(BALLGOWN_SUB_DIRS)
 
 ballgown_clean: $(BALLGOWN_DIR)
 	rm -r $(BALLGOWN_DIR)
+
+#
+# Transcript quantification using kallisto
+#
+
+# main dir for kallisto stuff
+
+KALLISTO_DIR=kallisto
+
+$(KALLISTO_DIR):
+	if [ ! -d $(KALLISTO_DIR) ]; then mkdir $(KALLISTO_DIR); fi
+
+KALLISTO_OPTS=-t 16
+
+
+#
+# Original gene set produced by maker
+#
+
+KALLISTO_OGS_DIR=$(addsuffix /ogs, $(KALLISTO_DIR))
+
+$(KALLISTO_OGS_DIR): $(KALLISTO_DIR)
+	if [ ! -d $(KALLISTO_OGS_DIR) ]; then mkdir $(KALLISTO_OGS_DIR); fi
+
+OGS_FASTA=genome/OGS6.0_20180125_transcripts.fa
+
+KALLISTO_OGS_FASTA=$(subst $(GENOME_DIR), $(KALLISTO_OGS_DIR), $(OGS_FASTA))
+
+$(KALLISTO_OGS_FASTA): $(KALLISTO_OGS_DIR) $(OGS_FASTA)
+	if [ ! -f $(KALLISTO_OGS_FASTA) ]; then ln $(OGS_FASTA) $(KALLISTO_OGS_FASTA); fi
+
+KALLISTO_OGS_IDX=$(addsuffix .idx, $(KALLISTO_OGS_FASTA))
+
+$(KALLISTO_OGS_IDX): $(KALLISTO_OGS_FASTA)
+	kallisto index -i $(KALLISTO_OGS_IDX) $(KALLISTO_OGS_FASTA)
+
+KALLISTO_OGS_OUT_DIRS=$(addprefix $(KALLISTO_OGS_DIR)/, $(SAMPLES))
+
+KALLISTO_OGS_COUNTS=$(addsuffix /abundance.tsv, $(KALLISTO_OGS_OUT_DIRS))
+
+
+
+$(KALLISTO_OGS_COUNTS): $(TRIM_FILES) $(KALLISTO_OGS_IDX)
+	$(foreach sample, $(SAMPLES), kallisto quant $(KALLISTO_OPTS) -i $(KALLISTO_OGS_IDX) -o $(KALLISTO_OGS_DIR)/$(sample) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq;)
+
+
+kallisto_ogs: $(KALLISTO_OGS_COUNTS)
