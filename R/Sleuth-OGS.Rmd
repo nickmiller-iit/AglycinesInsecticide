@@ -1,0 +1,227 @@
+---
+title: "Analysis of the maker-generated OGS gene set using kallisto and sleuth"
+output: html_notebook
+---
+
+# Set up
+
+Load required libs
+
+```{r}
+library(sleuth) #also loads dplyr
+library(cowplot)
+library(stringr)
+```
+
+Next set up the "auxilliary"" table with sample information and paths to data
+
+```{r sample.info}
+kallisto.path = "../kallisto/ogs"
+sample.info <- data.frame(sample = list.files(kallisto.path, pattern = "*_rep*"), stringsAsFactors = F)
+sample.info$path <- paste(kallisto.path, sample.info$sample, sep = "/")
+tmp <- str_extract(sample.info$sample, pattern = "^.")
+sample.info$treatment <- factor(case_when(tmp == "C" ~ "Control",
+                                          tmp == "E" ~ "Esfenvalerate",
+                                          tmp == "T" ~ "Thiamethoxam"),
+                                levels = c("Control", "Esfenvalerate", "Thiamethoxam"))
+rm(tmp)
+sample.info$time <- as.integer(str_sub(sample.info$sample, start = 2, end = 3))
+sample.info <- sample.info[,c(1,3,4,2)]
+
+sample.info
+```
+
+# Esfenvalerate at 12 hours
+
+We have already looked that this with DESeq2, so it is good to make the comparison.
+
+Subset the sample info
+
+```{r e12.info}
+e12.info <- filter(sample.info, 
+                   treatment %in% c("Control", "Esfenvalerate"), 
+                   time == 12)
+
+e12.info
+```
+
+Make a sleuth object
+
+```{r e12.sleuth}
+e12.sleuth <- sleuth_prep(e12.info,
+                          extra_bootstrap_summary = T)
+```
+
+Next fit the full model, with treatments and the reduced model with no treatments and perform liklihood ratio test.
+
+```{r lrt_e12}
+e12.sleuth <- sleuth_fit(e12.sleuth,
+                         formula = ~treatment,
+                         fit_name = "full")
+
+e12.sleuth <- sleuth_fit(e12.sleuth,
+                         formula = ~1,
+                         fit_name = "reduced")
+
+e12.sleuth <- sleuth_lrt(e12.sleuth, "reduced", "full")
+
+models(e12.sleuth)
+tests(e12.sleuth)
+```
+
+Extract the LRT test results
+
+```{r e12.results}
+
+e12.results <- sleuth_results(e12.sleuth, test = 'reduced:full', test_type = 'lrt', show_all = FALSE)
+e12.results
+
+```
+
+Get the results that are significant at FDR <= 0.1
+
+```{r e12.sig.results}
+e12.sig.results <- filter(e12.results,
+                          qval <= 0.1)
+
+
+```
+
+How many sig results do we have?
+
+```{r}
+length(e12.sig.results$target_id)
+```
+
+This seems like a lot given there are 42274 total transcripts in the gene set, i.e. 30.3% of transcripts are differentially expressed.
+
+# Quality control
+
+A nice thing about Sleuth is that is allows us to spot any outlier samples that might be throwing off our analysis. A first step is to look at a PCA plot.
+
+```{r qc_PCA}
+all.sleuth <- sleuth_prep(sample.info)
+
+plot_pca(all.sleuth, color_by = 'treatment', text_labels = T)
+```
+So, it looks like we have some potential outlier issues here, most notably with C12_rep4, but T12_rep25 and C12_rep3 are also a little suspect.
+
+I have been wondering if there is something funny going on with the 12 hour samples. Maybe we would do better to start by looking at the 24 hour samples.
+
+# Gene expression at 24 hours.
+
+## Basic QC
+
+```{r qc_24h}
+all.24h.info <- filter(sample.info, time == 24)
+all.24h.sleuth <- sleuth_prep(all.24h.info)
+plot_pca(all.24h.sleuth, color_by = 'treatment', text_labels = T)
+```
+
+Nothing too crazy-looking here, let's proceed.
+
+## Esvenvalerate
+
+
+Set up sample info
+
+```{r e24.info}
+e24.info <- filter(sample.info, 
+                   treatment %in% c("Control", "Esfenvalerate"), 
+                   time == 24)
+e24.info$treatment <- factor(e24.info$treatment, levels = c("Control", "Esfenvalerate"))
+
+e24.info
+```
+
+Set up the sleuth object
+
+```{r e24.sleuth}
+e24.sleuth <- sleuth_prep(e24.info,
+                          extra_bootstrap_summary = T)
+```
+
+A quick PCA plot to check for nasties
+```{r}
+plot_pca(e24.sleuth, color_by = 'treatment', text_labels = T)
+```
+
+Fit the full model (with treatment effects) and the reduced model (wothout treatment effects) and do likelihood ratio tests for differential gene expression.
+
+```{r lrt_e24}
+e24.sleuth <- sleuth_fit(e24.sleuth,
+                         formula = ~treatment,
+                         fit_name = "full")
+
+e24.sleuth <- sleuth_fit(e24.sleuth,
+                         formula = ~1,
+                         fit_name = "reduced")
+
+e24.sleuth <- sleuth_lrt(e24.sleuth, "reduced", "full")
+
+models(e24.sleuth)
+tests(e24.sleuth)
+```
+Extract the LRT test results
+
+```{r e24.results}
+
+e24.results <- sleuth_results(e24.sleuth, test = 'reduced:full', test_type = 'lrt', show_all = FALSE)
+e24.results
+
+```
+
+
+Get the results that are significant at FDR <= 0.1
+
+```{r e24.sig.results}
+e24.sig.results <- filter(e24.results,
+                          qval <= 0.1)
+
+
+```
+
+How many sig results do we have?
+
+
+```{r}
+length(e24.sig.results$target_id)
+```
+
+Since we only have 8 significantly differentially expressed genes, we can take a look at all 8.
+
+```{r}
+x <- e24.sig.results$target_id
+plot_bootstrap(e24.sleuth, x[1])
+plot_bootstrap(e24.sleuth, x[2])
+plot_bootstrap(e24.sleuth, x[3])
+plot_bootstrap(e24.sleuth, x[4])
+plot_bootstrap(e24.sleuth, x[5])
+plot_bootstrap(e24.sleuth, x[6])
+plot_bootstrap(e24.sleuth, x[7])
+plot_bootstrap(e24.sleuth, x[8])
+```
+
+So there are 5 genes downregulated with esfenvalerate, 3 upregulated.
+
+Lets see if there are any entries in the blast2go annoations for these genes
+
+First, lets get the b2g annotations, such as they are
+
+```{r b2g.annotations}
+b2g.annotations <- read.table("../genome/SBA_annot/blast2go.annot",
+                              col.names = c("protein_id", "GO.term", "name"),
+                              stringsAsFactors = F,sep = '\t')
+head(b2g.annotations)
+```
+
+So, just for added fun, we have different identifiers -RA, presumanbly for RNA, -PA, presumably for proteins - dplyr to the rescue!
+
+```{r e24.sig.annots}
+e24.sig.annots <- left_join(mutate(e24.sig.results, protein_id = str_replace(target_id, '-RA$', '-PA')), 
+                            b2g.annotations)[, c(1, 15, 16)]
+e24.sig.annots
+
+```
+Nothing, but then again only 10171 (about 24%) of the transcripts have anything an entry in the blast2go annotations
+

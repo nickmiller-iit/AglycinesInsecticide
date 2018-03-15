@@ -287,7 +287,7 @@ KALLISTO_DIR=kallisto
 $(KALLISTO_DIR):
 	if [ ! -d $(KALLISTO_DIR) ]; then mkdir $(KALLISTO_DIR); fi
 
-KALLISTO_OPTS=-t 16
+KALLISTO_OPTS=-t 24 -b 100
 
 
 #
