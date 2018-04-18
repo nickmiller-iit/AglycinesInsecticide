@@ -67,3 +67,7 @@ Kallisto and other "pseudoalignment" transcript quantifiers are the next big thi
 ### With maker gene set
 
 Kallisto works with a fasta file of transcript sequences. We already have this for the maker gene set, so started with makefile targets to index that and quantify transcripts.
+
+### With modified maker gene set
+
+Three tanscripts appeared to be causing a few of the 12-hour samples to behave oddly in PCA plots. Removed the transcripts with `seqkit grep` and re-ran the analysis.

@@ -322,3 +322,78 @@ $(KALLISTO_OGS_COUNTS): $(TRIM_FILES) $(KALLISTO_OGS_IDX)
 
 
 kallisto_ogs: $(KALLISTO_OGS_COUNTS)
+
+
+#
+# Removing a couple of genes causing strange things to happen in a few of the 12-hour samples
+#
+
+KALLISTO_MOD_OGS_DIR=$(addsuffix /mod_ogs, $(KALLISTO_DIR))
+
+$(KALLISTO_MOD_OGS_DIR): $(KALLISTO_DIR)
+	if [ ! -d $(KALLISTO_MOD_OGS_DIR) ]; then mkdir $(KALLISTO_MOD_OGS_DIR); fi
+
+
+KALLISTO_MOD_OGS_FASTA=$(subst $(GENOME_DIR), $(KALLISTO_MOD_OGS_DIR), $(OGS_FASTA))
+
+$(KALLISTO_MOD_OGS_FASTA): $(KALLISTO_MOD_OGS_DIR) $(OGS_FASTA)
+	seqkit grep -v -p "AG6039732-RA" -p "AG6039740-RA" $(OGS_FASTA) > $(KALLISTO_MOD_OGS_FASTA)
+
+
+KALLISTO_MOD_OGS_IDX=$(addsuffix .idx, $(KALLISTO_MOD_OGS_FASTA))
+
+$(KALLISTO_MOD_OGS_IDX): $(KALLISTO_MOD_OGS_FASTA)
+	kallisto index -i $(KALLISTO_MOD_OGS_IDX) $(KALLISTO_MOD_OGS_FASTA)
+
+KALLISTO_MOD_OGS_OUT_DIRS=$(addprefix $(KALLISTO_MOD_OGS_DIR)/, $(SAMPLES))
+
+KALLISTO_MOD_OGS_COUNTS=$(addsuffix /abundance.tsv, $(KALLISTO_MOD_OGS_OUT_DIRS))
+
+$(KALLISTO_MOD_OGS_COUNTS): $(TRIM_FILES) $(KALLISTO_MOD_OGS_IDX)
+	$(foreach sample, $(SAMPLES), kallisto quant $(KALLISTO_OPTS) -i $(KALLISTO_MOD_OGS_IDX) -o $(KALLISTO_MOD_OGS_DIR)/$(sample) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq;)
+
+
+kallisto_mod_ogs: $(KALLISTO_MOD_OGS_COUNTS)
+
+
+#
+# Second round of rmoving naughty transcripts
+#
+
+KALLISTO_MOD2_OGS_DIR=$(addsuffix /mod2_ogs, $(KALLISTO_DIR))
+
+$(KALLISTO_MOD2_OGS_DIR): $(KALLISTO_DIR)
+	if [ ! -d $(KALLISTO_MOD2_OGS_DIR) ]; then mkdir $(KALLISTO_MOD2_OGS_DIR); fi
+
+
+KALLISTO_MOD2_OGS_FASTA=$(subst $(GENOME_DIR), $(KALLISTO_MOD2_OGS_DIR), $(OGS_FASTA))
+
+$(KALLISTO_MOD2_OGS_FASTA): $(KALLISTO_MOD2_OGS_DIR) $(OGS_FASTA)
+	seqkit grep -v -p "AG6039732-RA" -p "AG6039740-RA" -p "AG6040592-RA" $(OGS_FASTA) > $(KALLISTO_MOD2_OGS_FASTA)
+
+
+KALLISTO_MOD2_OGS_IDX=$(addsuffix .idx, $(KALLISTO_MOD2_OGS_FASTA))
+
+$(KALLISTO_MOD2_OGS_IDX): $(KALLISTO_MOD2_OGS_FASTA)
+	kallisto index -i $(KALLISTO_MOD2_OGS_IDX) $(KALLISTO_MOD2_OGS_FASTA)
+
+KALLISTO_MOD2_OGS_OUT_DIRS=$(addprefix $(KALLISTO_MOD2_OGS_DIR)/, $(SAMPLES))
+
+KALLISTO_MOD2_OGS_COUNTS=$(addsuffix /abundance.tsv, $(KALLISTO_MOD2_OGS_OUT_DIRS))
+
+$(KALLISTO_MOD2_OGS_COUNTS): $(TRIM_FILES) $(KALLISTO_MOD2_OGS_IDX)
+	$(foreach sample, $(SAMPLES), kallisto quant $(KALLISTO_OPTS) -i $(KALLISTO_MOD2_OGS_IDX) -o $(KALLISTO_MOD2_OGS_DIR)/$(sample) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq;)
+
+
+kallisto_mod2_ogs: $(KALLISTO_MOD2_OGS_COUNTS)
+
+# After 2 rounds of culling misbehaving transcripts, our data look good on sleuth PCA plot
+# Tidy up the output naming for the reduced transcript set.
+
+KALLISTO_REDUCED_OGS_DIR=$(addsuffix /reduced_ogs, $(KALLISTO_DIR))
+
+$(KALLISTO_REDUCED_OGS_DIR): $(KALLISTO_MOD2_OGS_DIR)
+	if [ -d $(KALLISTO_REDUCED_OGS_DIR) ]; then rm -r $(KALLISTO_REDUCED_OGS_DIR); fi
+	cp -r $(KALLISTO_MOD2_OGS_DIR) $(KALLISTO_REDUCED_OGS_DIR)
+
+kallisto_reduced_ogs: $(KALLISTO_REDUCED_OGS_DIR)
