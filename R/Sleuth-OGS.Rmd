@@ -90,7 +90,7 @@ We have already looked that this with DESeq2, so it is good to make the comparis
 
 Subset the sample info
 
-```{r e12.info, eval=FALSE, include=FALSE}
+```{r off.e12.info, eval=FALSE, include=FALSE}
 e12.info <- filter(sample.info, 
                    treatment %in% c("Control", "Esfenvalerate"), 
                    time == 12)
@@ -100,14 +100,14 @@ e12.info
 
 Make a sleuth object
 
-```{r e12.sleuth, eval=FALSE, include=FALSE}
+```{r off.e12.sleuth, eval=FALSE, include=FALSE}
 e12.sleuth <- sleuth_prep(e12.info,
                           extra_bootstrap_summary = T)
 ```
 
 Next fit the full model, with treatments and the reduced model with no treatments and perform liklihood ratio test.
 
-```{r lrt_e12, eval=FALSE, include=FALSE}
+```{r off.lrt_e12, eval=FALSE, include=FALSE}
 e12.sleuth <- sleuth_fit(e12.sleuth,
                          formula = ~treatment,
                          fit_name = "full")
@@ -124,7 +124,7 @@ tests(e12.sleuth)
 
 Extract the LRT test results
 
-```{r e12.results, eval=FALSE, include=FALSE}
+```{r off.e12.results, eval=FALSE, include=FALSE}
 
 e12.results <- sleuth_results(e12.sleuth, test = 'reduced:full', test_type = 'lrt', show_all = FALSE)
 e12.results
@@ -133,7 +133,7 @@ e12.results
 
 Get the results that are significant at FDR <= 0.1
 
-```{r e12.sig.results, eval=FALSE, include=FALSE}
+```{r off.e12.sig.results, eval=FALSE, include=FALSE}
 e12.sig.results <- filter(e12.results,
                           qval <= 0.1)
 
@@ -342,7 +342,9 @@ t24.sig.results
 
 Nope!
 
-# 12 Hours
+# Gene Expression at 12 Hours
+
+## Quality control
 
 First thing to do is understand what is going on with the outliers.
 
@@ -455,5 +457,148 @@ plot_pca(mod2.all.sleuth, color_by = 'treatment', text_labels = T)
 ```
 
 That looks a lot better, no wild outliers anymore.
+
+To avoid cryptic naming, copied the "mod2" kallisto output to kallisto/reduced_ogs.
+
+```{r reduced.ogs.sample.info}
+reduced.ogs.sample.info <- mutate(sample.info, 
+                          path = str_replace(sample.info$path, 'ogs', 'reduced_ogs'))
+```
+
+## Esfenvalerate, 12h
+
+Differential gene expression between control and esfenvalerate at 12h.
+
+Set up the sample info.
+
+
+```{r e12.info}
+e12.info <- filter(reduced.ogs.sample.info,
+            treatment %in% c("Control", "Esfenvalerate"),
+            time == 12)
+e12.info$treatment <- factor(e12.info$treatment, levels = c("Control", "Esfenvalerate"))
+e12.info
+```
+
+
+Set up the sleuth object
+
+```{r e12.sleuth}
+e12.sleuth <- sleuth_prep(e12.info,
+                          extra_bootstrap_summary = T)
+```
+
+A quick PCA to check nothing too strange is going on.
+
+```{r}
+plot_pca(e12.sleuth, color_by = 'treatment', text_labels = T)
+```
+
+Fit models and run liklihood ratio test.
+
+```{r lrt_e12}
+e12.sleuth <- sleuth_fit(e12.sleuth,
+                         formula = ~treatment,
+                         fit_name = "full")
+
+e12.sleuth <- sleuth_fit(e12.sleuth,
+                         formula = ~1,
+                         fit_name = "reduced")
+
+e12.sleuth <- sleuth_lrt(e12.sleuth, "reduced", "full")
+
+models(e12.sleuth)
+tests(e12.sleuth)
+```
+
+
+Get the results of the LRT
+
+```{r e12.results}
+e12.results <- sleuth_results(e12.sleuth, test = 'reduced:full', test_type = 'lrt', show_all = FALSE)
+e12.results
+```
+
+Get the results that are significant at FDR = 0.1
+
+```{r e12.sig.results}
+e12.sig.results <- filter(e12.results,
+                          qval <= 0.1)
+e12.sig.results
+```
+
+How many genes are significantly differentially expressed?
+
+```{r}
+length(e12.sig.results$target_id)
+
+```
+
+Ouch!!!
+
+This may be so many genes that is not useful, if we are going to make any sense of it, we will probably have to confine our attention to the genes with the largest expression differences. Sleuth's LRT does not yeild a measure of the effect size. However the Wald test does yeild beta, which is analgous to ln(fold_change).
+
+On the other hand, the Wald test apparently does not perform well with small numbers of replicates. This [blog post](http://achri.blogspot.com.es/2016/10/using-kallisto-sleuth.html) suggests running the LRT for significance testing, and running the Wald test to get effect sizes.
+
+```{r}
+e12.sleuth <- sleuth_wt(e12.sleuth, 'treatmentEsfenvalerate')
+e12.wald.results <- sleuth_results(e12.sleuth,
+                                   test = 'treatmentEsfenvalerate')
+```
+
+Let's add the values of b to the LRT significant results.
+
+```{r}
+e12.sig.results <- left_join(e12.sig.results, 
+                             e12.wald.results[,c(1,4)])
+
+```
+Get the top 25 transcripts that are significantly upregulated under esfenvalerate exposure.
+
+```{r e12.top25}
+e12.top25 <- head(arrange(e12.sig.results,
+                          desc(b)),
+                  n = 25)
+
+?seq_along
+
+```
+
+Get the annotations for the top 25 upregulated transcripts
+
+```{r e12.top25.b2g}
+e12.top25.b2g <- filter(b2g.annotations,
+                        protein_id %in% str_replace(e12.top25$target_id,
+                                                    "-R",
+                                                    "-P"))
+
+e12.top25.b2g 
+```
+
+```{r e12.top25.ips}
+e12.top25.ips <- filter(ips.annotations,
+                        protein_id %in% str_replace(e12.top25$target_id,
+                                                    "-R",
+                                                    "-P"))
+
+e12.top25.ips
+```
+
+Lets take a look at the plots of transcript counts.
+
+```{r, warning=F}
+for (id in e12.top25$target_id){
+  plt <- plot_bootstrap(e12.sleuth,
+                        id)
+  print(plt)
+  }
+
+```
+
+
+## Are the OGS trancsripts and good.
+
+After playing around with the top 25 DEGs, I am starting to suspect there is something amiss with the OGS trancsripts. An NCBI blastx search using AG6012408-RA as the query give a couple of short hits to XP_022178029, a Myzus persicae cuticle protein. Taking XP_022178029 as a tblastn query against the SBA genome reveals hits to the ends of AG6012408-RA but also exons of several other transcript models that sit within or overlap with AG6012408-RA, some of which are on the opposite strand. This is all very fishy. Chatting with JF, he agreed it looked suspect and suggested doing my own annotation with BRAKER for comparison.
+
 
 
