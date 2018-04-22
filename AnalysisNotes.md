@@ -71,3 +71,19 @@ Kallisto works with a fasta file of transcript sequences. We already have this f
 ### With modified maker gene set
 
 Three tanscripts appeared to be causing a few of the 12-hour samples to behave oddly in PCA plots. Removed the transcripts with `seqkit grep` and re-ran the analysis.
+
+## BUSCO analysis
+
+Initial playing around with kalliso and sleuth, plus some eyballing of the gene models in Apollo makes me suspect that the origiginal gene set is fragmented. RAN a BUSCO analysis on the OGS protein sequences.
+
+Surprised to find the rate of fragmented BUSCOs is pretty low!
+
+	C:90.9%[S:87.0%,D:3.9%],F:2.7%,M:6.4%,n:1658
+
+	1507	Complete BUSCOs (C)
+	1443	Complete and single-copy BUSCOs (S)
+	64	Complete and duplicated BUSCOs (D)
+	44	Fragmented BUSCOs (F)
+	107	Missing BUSCOs (M)
+	1658	Total BUSCO groups searched
+

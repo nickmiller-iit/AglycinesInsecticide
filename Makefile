@@ -397,3 +397,30 @@ $(KALLISTO_REDUCED_OGS_DIR): $(KALLISTO_MOD2_OGS_DIR)
 	cp -r $(KALLISTO_MOD2_OGS_DIR) $(KALLISTO_REDUCED_OGS_DIR)
 
 kallisto_reduced_ogs: $(KALLISTO_REDUCED_OGS_DIR)
+
+
+
+#
+# BUSCO analysis
+#
+
+# Prereqs for BUSCO analysis
+
+BUSCO_DIR=busco
+
+$(BUSCO_DIR):
+	if [ ! -d $(BUSCO_DIR) ]; then mkdir $(BUSCO_DIR); fi
+
+BUSCO_TARBALL=$(addsuffix /insecta_odb9.tar.gz, $(BUSCO_DIR))
+
+$(BUSCO_TARBALL): $(BUSCO_DIR)
+	wget -P $(BUSCO_DIR) http://busco.ezlab.org/datasets/insecta_odb9.tar.gz
+
+BUSCO_MODELS=$(addsuffix /insecta_odb9, $(BUSCO_DIR))
+
+$(BUSCO_MODELS): $(BUSCO_TARBALL)
+	tar xzvf $(BUSCO_TARBALL) -C $(BUSCO_DIR)
+
+run_busco.ogs: $(BUSCO_MODELS)
+	if [ -d run_busco.ogs ]; then rm -r run_busco.ogs; fi
+	run_busco -i genome/OGS6.0_20180125_proteins.fa -o busco.ogs -l $(BUSCO_MODELS) -m proteins -c 16
