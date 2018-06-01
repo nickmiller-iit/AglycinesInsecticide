@@ -142,19 +142,47 @@ genome_db: $(GENOME_DB_FILES)
 genome_db_clean: $(GENOME_DB_DIR)
 	rm -r $(GENOME_DB_DIR)
 
-#Align paired reads and write SAM file
+
+#
+# Trying HISAT2 instead of GSNAP for downstream calling of transcript
+# models
+# 
+#
+
+HISAT_DIR=hisat
+
+HISAT_IDX_BASE=$(addsuffix /SBAGenome, $(HISAT_DIR))
+
+# HISAT indexes consist of multiple files named dir/base.n.ht2
+# Where n is an integer. Use 1 as a trigger to build the index
+
+HISAT_IDX=$(addsuffix .1.ht2, $(HISAT_IDX_BASE))
+
+$(HISAT_IDX): $(GENOME_FASTA)
+	if [ ! -d $(HISAT_DIR) ]; then mkdir $(HISAT_DIR); fi
+	hisat2-build -p 24 $(GENOME_FASTA) $(HISAT_IDX_BASE)
+
+# Align paired reads and write SAM file
 
 SAMPLES=$(BASENAMES)
 
 ALIGN_DIR=bam
 
-GSNAP_CMD=gsnap -t 26 -N 1 -A sam
+GSNAP_CMD=gsnap -t 26 -N 1 -w 4000 -A sam
+
+HISAT_CMD=hisat2 -p 24 --minins 150 --downstream-transcriptome-assembly --no-discordant --no-unal -x $(HISAT_IDX_BASE)
 
 BAM_FILES=$(addsuffix .bam, $(addprefix $(ALIGN_DIR)/, $(SAMPLES)))
 
-$(BAM_FILES): $(1POUT) $(2POUT)
+# $(BAM_FILES): $(1POUT) $(2POUT)
+# 	if [ ! -d $(ALIGN_DIR) ]; then mkdir $(ALIGN_DIR); fi
+# 	$(foreach sample, $(SAMPLES), $(GSNAP_CMD) -D $(GENOME_DIR) -d $(GENOME_DB) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq | samtools view -bh > $(ALIGN_DIR)/$(sample).bam;)
+
+
+$(BAM_FILES): $(1POUT) $(2POUT) $(HISAT_IDX)
 	if [ ! -d $(ALIGN_DIR) ]; then mkdir $(ALIGN_DIR); fi
-	$(foreach sample, $(SAMPLES), $(GSNAP_CMD) -D $(GENOME_DIR) -d $(GENOME_DB) $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq | samtools view -bh > $(ALIGN_DIR)/$(sample).bam;)
+	$(foreach sample, $(SAMPLES), $(HISAT_CMD) -1 $(TRIM_BASE)$(sample)/$(sample)_R1_P.fastq -2 $(TRIM_BASE)$(sample)/$(sample)_R2_P.fastq | samtools view -bh > $(ALIGN_DIR)/$(sample).bam;)
+
 
 align: $(BAM_FILES)
 
@@ -183,7 +211,9 @@ STRINGTIE_DIR=stringtie
 
 STRINGTIE_REF=genome/OGS6.0_20180125.gff3
 
-STRINGTIE_CMD=stringtie -p 26 -G $(STRINGTIE_REF)
+# STRINGTIE_CMD=stringtie -p 26 -G $(STRINGTIE_REF)
+
+STRINGTIE_CMD=stringtie -p 26
 
 STRINGTIE_FILES=$(addsuffix .gtf, $(addprefix $(STRINGTIE_DIR)/, $(SAMPLES)))
 
@@ -197,7 +227,7 @@ assemble_transcripts: $(STRINGTIE_FILES)
 STRINGTIE_MERGED=$(STRINGTIE_DIR)/stringtie_merged.gtf
 
 $(STRINGTIE_MERGED): $(STRINGTIE_FILES)
-	stringtie --merge -G $(STRINGTIE_REF) -o $(STRINGTIE_MERGED) $(STRINGTIE_FILES)
+	$(STRINGTIE_CMD) --merge -o $(STRINGTIE_MERGED) $(STRINGTIE_FILES)
 
 merge_transcripts: $(STRINGTIE_MERGED)
 
@@ -424,3 +454,76 @@ $(BUSCO_MODELS): $(BUSCO_TARBALL)
 run_busco.ogs: $(BUSCO_MODELS)
 	if [ -d run_busco.ogs ]; then rm -r run_busco.ogs; fi
 	run_busco -i genome/OGS6.0_20180125_proteins.fa -o busco.ogs -l $(BUSCO_MODELS) -m proteins -c 16
+
+
+#
+# Braker annotation
+#
+
+BRAKER_DIR=braker
+
+$(BRAKER_DIR):
+	if [ ! -d $(BRAKER_DIR) ]; then mkdir $(BRAKER_DIR); fi
+
+# Merged bam file
+
+BAM_MERGED=$(addsuffix /merged.bam, $(BRAKER_DIR))
+
+$(BAM_MERGED): $(BAM_FILES_SORTED) | $(BRAKER_DIR)
+	samtools merge -r $(BAM_MERGED) $(BAM_FILES_SORTED)
+
+# not explicitly required by braker, but a sorted, indexed bam file is needed to visualization etc
+
+BAM_MERGED_SORTED=$(addsuffix /merged.sorted.bam, $(BRAKER_DIR))
+
+TMP_RG_HDR=$(addsuffix /hdr_tmp.sam, $(BRAKER_DIR))
+
+# Samtools does not like to add read groups to the headers for some reason
+# We can fix that with some trickery and samtools redeader
+
+BAM_MERGED_SORTED_RG=$(addsuffix /merged.sorted.rg.bam, $(BRAKER_DIR))
+
+$(BAM_MERGED_SORTED): $(BAM_MERGED)
+	samtools sort --threads 16 -O BAM -o $(BAM_MERGED_SORTED) $(BAM_MERGED)
+#	samtools view -H $(BAM_MERGED_SORTED) > $(TMP_RG_HDR)
+#	echo $(BAM_FILES_SORTED) | cut -d "/" -f2 | cut -d '.' -f1,2 | sed 's/^/@RG\tID:/' >> $(TMP_RG_HDR)
+#	samtools reheader $(TMP_RG_HDR) $(BAM_MERGED_SORTED) > $(BAM_MERGED_SORTED_RG)
+#	mv $(BAM_MERGED_SORTED_RG) $(BAM_MERGED_SORTED)
+
+BAM_MERGED_SORTED_IDX=$(addsuffix .bai, $(BAM_MERGED_SORTED))
+
+$(BAM_MERGED_SORTED_IDX): $(BAM_MERGED_SORTED)
+	samtools index -@ 16 $(BAM_MERGED_SORTED) $(BAM_MERGED_SORTED_IDX)
+
+align_merge: $(BAM_MERGED_SORTED_IDX)
+
+#
+# The merged file is too big to be visualized in regions of high coverage. Tablet crashes and samtools tview
+# slows to a crawl. Subsample the read file down to 10%.
+#
+
+BAM_MERGED_SUBSAMPLE=$(addsuffix /merged.sorted.subsample.bam, $(BRAKER_DIR))
+
+$(BAM_MERGED_SUBSAMPLE): $(BAM_MERGED_SORTED)
+	samtools view -b -s 0.1 $(BAM_MERGED_SORTED) > $(BAM_MERGED_SUBSAMPLE)
+
+BAM_MERGED_SUBSAMPLE_IDX=$(addsuffix .bai, $(BAM_MERGED_SUBSAMPLE))
+
+$(BAM_MERGED_SUBSAMPLE_IDX): $(BAM_MERGED_SUBSAMPLE)
+	samtools index -@ 16 $(BAM_MERGED_SUBSAMPLE) $(BAM_MERGED_SUBSAMPLE_IDX)
+
+
+
+#
+# De-novo assembly with Trinity
+#
+# Note that Trinity makes its own output dir, so we can just use that as the target
+#
+
+TRINITY_LEFT=$(shell echo $(1POUT) | tr ' ' ',')
+
+TRINITY_RIGHT=$(shell echo $(2POUT) | tr ' ' ',')
+
+trinity: $(1POUT) $(2POUT)
+	Trinity --seqType fq --left $(TRINITY_LEFT) --right $(TRINITY_RIGHT) --CPU 16 --max_memory 64G --output trinity
+

@@ -87,3 +87,27 @@ Surprised to find the rate of fragmented BUSCOs is pretty low!
 	107	Missing BUSCOs (M)
 	1658	Total BUSCO groups searched
 
+## Revisiting GSNAP alignment
+
+As a prelude to looking at transcripts with either stringtie or braker, spent some time in Tablet looking at a merged BAM file with all reads aligend to the genome. Spotted something odd. In some places there are susbtantial numbers of reads that are splice over huge distances (10s of kb). Often these long spliced alignemnts skip muliple intervening exons **and** only have a handful of nucleotids aligned at one end. These seem pretty fishy.
+
+GSNAP apparently constiders two kinds of splicing events "local", and "distant". Local splices are those invilving introns up the a length set by the program argument -w, distant splices are those over longer ranges. The default value for -w is 200000, i.e. 200 kb! After several hours of poking around, I never saw a legitimate intorn longer than about 3.5 kb.
+
+Moved the original bam dir to bam_long_splice. Moved the *.merged* bam and index files in the braker dir to long_splice_*merged*.
+
+Reran GSNAP alignment with -w 4000
+
+This still produced weird long splices.
+
+## A HISAT2 / Stringtie transcript set
+
+The decision to make use of the Maker-based gene models was motivated by the idea that these had already been annotated. Because the annotation of these gene models is spotty, that justifation is moot. As an alternative, ran HISAT2 to map reads, and stringtie to generate gene models. This time, stringtie was **not** given the GFF of maker gene models, so the stringtie models are 100% from scratch.
+
+Again, eyeballing the alignment in Tablet throws up some concerns. Visiting the region of OGS annotation AG6010557 - one of the most differentially expressed transcripts under esfenvalerate, we see similar weird splicing patterns to  GSNAP with splice over 10s - 100s of kb. I'm beginning to wonder if there is a misassembly problem here. 
+
+## De-novo transcriptome assembly
+
+Since I'm starting to wonder about the genome assembly, let's do a de-novo assembly of the transcriptome for comparison.
+
+Running Trinity with default params generates and assembly with 137824 transcripts associated with 68140 genes. The gene number is a bit high, but not outrageously so if we consider we are bound to have some split genes and also probably some retrotransposon transcripts.
+
